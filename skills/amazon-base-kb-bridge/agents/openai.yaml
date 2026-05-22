@@ -1,0 +1,5 @@
+interface:
+  display_name: "Amazon Base KB Bridge"
+  short_description: "Shared mapping and audit layer for Amazon Base and KB updates"
+  default_prompt: "Resolve this Amazon meeting or project update into Base targets, proposed changes, audit fields, and inconsistency checks."
+

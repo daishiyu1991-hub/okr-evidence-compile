@@ -1,0 +1,26 @@
+{
+  "base_token": "GxaobEQtqaOwFZsB5wTcC33Rnl7",
+  "knowledge_space_id": "7639331686206999770",
+  "layers": {
+    "kr": {
+      "table_id": "tblxM7ZfxJt2P4Fl",
+      "title_fields": ["O-目标", "KR-关键结果"],
+      "writable_fields": ["状态", "进度", "输出结果"],
+      "audit_fields": ["最近更新原因", "最近更新来源", "最近更新时间", "AI编译摘要", "待人工确认"]
+    },
+    "project": {
+      "table_id": "tblOHGg4IA2pY7uh",
+      "title_fields": ["项目名称", "项目目标"],
+      "writable_fields": ["进度", "本周更新", "下一步", "阻塞", "下次检查点"],
+      "audit_fields": ["最近更新原因", "最近更新来源", "最近更新时间", "AI编译摘要", "待人工确认"]
+    },
+    "task": {
+      "table_id": "tblrduPxvdifLm62",
+      "title_fields": ["任务"],
+      "writable_fields": ["执行人", "关联KR", "任务进度", "本周完成结果", "输出结果", "任务结束日期"],
+      "user_fields": ["执行人", "干系人"],
+      "link_fields": ["关联KR", "所属项目"],
+      "audit_fields": ["最近更新原因", "最近更新来源", "最近更新时间", "AI编译摘要", "待人工确认"]
+    }
+  }
+}

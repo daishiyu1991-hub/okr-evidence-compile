@@ -41,27 +41,57 @@ The preview must include:
 
 ## Execution Flow
 
-1. Parse the input into a `source_packet`
-2. Resolve whether the input is meeting-driven or manually targeted
-3. Resolve the layer and candidate records
-4. Use `scripts/build_update_preview.py` from `amazon-base-kb-bridge`
-5. Present the preview
-6. Only write after explicit confirmation
-7. After writing, backfill audit fields
+1. **Identity** (v2): resolve `ME = lark-cli auth status .userOpenId` (with fallback chain). Abort if missing.
+2. Parse the input into a `source_packet`
+3. Resolve whether the input is meeting-driven or manually targeted
+4. Resolve the layer and candidate records
+5. **Ownership check** (v2): for each resolved target record, call `amazon-base-kb-bridge.assert_ownership(record, layer)`:
+   - `kr` layer → `record.执行人[0].id == ME`
+   - `project` layer → `record.负责人[0].id == ME`
+   - `task` layer (update) → `record.执行人[0].id == ME`
+   - mismatch → drop that target from preview, surface in preview as `❌ ownership_mismatch (owned by <other>)`, **do not** write
+6. Use `scripts/build_update_preview.py` from `amazon-base-kb-bridge`
+7. Present the preview (must mark each target's ownership status: `✅ own` / `❌ not own`)
+8. Only write after explicit confirmation. **Refuse** to write any target marked `❌ not own` even after confirmation
+9. After writing, backfill audit fields
 
 ## Write Boundaries
 
-- KR layer: only `状态`, `进度`, `输出结果`
-- Project layer: only `进度`, `本周更新`, `下一步`, `阻塞`, `下次检查点`
-- Task layer: only `执行人`, `关联KR`, `任务进度`, `本周完成结果`, `输出结果`, `任务结束日期`
-- Task assignee: when the source explicitly names an owner, resolve the person
-  with `lark-contact` and include `执行人` as a user field in the preview/write.
+- **Ownership scope (v2, hard rule)**:
+  - KR write: only when `KR.执行人 == ME`
+  - Project write: only when `项目.负责人 == ME`
+  - Task update: only when `任务.执行人 == ME`
+  - Task create: force `任务.执行人 = [{"id": ME}]`. If source action item is for another person → skip create (let them sync from their own machine)
+  - Audit fields obey the same ownership scope as formal fields
+- KR layer formal fields: only `状态`, `进度`, `输出结果`
+- Project layer formal/helper fields: only `进度`, `本周更新`, `下一步`, `阻塞`, `下次检查点`
+- Task layer formal/helper fields: only `执行人`, `关联KR`, `任务进度`, `本周完成结果`, `输出结果`, `任务结束日期`
+- Task assignee resolution: when the source explicitly names an owner (other than ME),
+  resolve the person with `lark-contact`, but **only emit a write if that owner == ME**.
+  Otherwise add to "cross-owner action items (not synced)" section of preview.
 - Task KR link: when the source maps to a KR, resolve the KR record first and
   include `关联KR` as `[{ "id": "recxxx" }]`.
 
 If confidence is low:
 - do not write formal state
 - write `AI编译摘要` and `待人工确认` only, or stay preview-only
+
+If ownership mismatch:
+- **never** write (even audit fields)
+- surface in preview so caller knows that target is owned by someone else
+- recommend the other owner runs the skill on their own machine
+
+## Multi-User Safety (v2 notes)
+
+This skill runs concurrently on multiple teammates' codex laptops. Because every
+write is scoped by ownership, two teammates can run the skill at the same time
+without conflicting on the same record:
+
+- 戴时雨 can only write to records where `执行人/负责人 == 戴时雨.open_id`
+- 罗国华 can only write to records where `执行人/负责人 == 罗国华.open_id`
+- Same source content (e.g., a shared meeting note) processed by 4 owners produces 4 disjoint write sets
+
+No shared lock needed. Action item dedup happens naturally because each item has at most one owner who can sync it.
 
 ## References
 

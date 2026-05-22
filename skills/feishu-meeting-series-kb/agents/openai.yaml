@@ -1,0 +1,4 @@
+interface:
+  display_name: "Feishu Meeting Series KB"
+  short_description: "Recurring meeting KBs from Feishu"
+  default_prompt: "Build a cross-session knowledge base for this recurring Feishu meeting series."

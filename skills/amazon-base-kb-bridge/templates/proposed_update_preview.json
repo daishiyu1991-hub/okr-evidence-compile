@@ -1,0 +1,36 @@
+{
+  "source_packet": {
+    "source_type": "meeting_notes",
+    "source_url": "",
+    "source_title": "",
+    "source_date": "",
+    "raw_excerpt": ""
+  },
+  "target_resolutions": [
+    {
+      "layer": "project",
+      "table": "🧮团队项目清单",
+      "record_id": "",
+      "record_title": "",
+      "confidence": "medium"
+    }
+  ],
+  "proposed_changes": [
+    {
+      "field": "本周更新",
+      "before": "",
+      "after": "",
+      "reason": "",
+      "confidence": "medium"
+    }
+  ],
+  "audit_payload": {
+    "最近更新原因": "",
+    "最近更新来源": "",
+    "最近更新时间": "",
+    "AI编译摘要": "",
+    "待人工确认": true
+  },
+  "write_mode": "preview_only"
+}
+
