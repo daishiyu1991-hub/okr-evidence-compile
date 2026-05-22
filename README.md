@@ -50,6 +50,18 @@ amazon-daily-kb-sync ─────────────┘
 
 ---
 
+## Automations（codex 客户端定时自动化）
+
+跟 skills 不同——这是直接复制粘贴到 codex 客户端 "自动化" 功能里的 prompt 文本，**不通过 `npx skills add` 安装**。详见 [`automations/`](automations/)。
+
+| Automation | 触发 | 用途 |
+|---|---|---|
+| **okr-weekly-ritual** | 每周一 09:00 Asia/Shanghai cron | OKR 4-phase 周仪式：复盘上周 → 补建 gap → 规划本周 → 推群同步 |
+
+部署方式：进 [`automations/okr-weekly-ritual/`](automations/okr-weekly-ritual/) 看 `README.md`，复制 `prompt.md` 粘到 codex 客户端。
+
+---
+
 ## Install
 
 ### 装单个 skill（推荐）
