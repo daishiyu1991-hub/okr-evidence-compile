@@ -6,17 +6,18 @@
 
 ---
 
-## Skills 清单 (v3 — 职责清晰分离：wiki vs base)
+## Skills 清单 (v4 — base 写入 + 决策库；wiki 写入由 CEO 账号 codex automation 处理)
 
-5 个 skill 构成 86lux 在飞书 Base + 知识库上的工具链。**核心设计原则：feishu-meeting-series-kb 独占 wiki 写入，其他 amazon-* skills 独占 base 表写入**。
+4 个 skill 构成 86lux 在飞书 Base 上的工具链。**全部只写 Base，不写 wiki**。wiki 沉淀（日会 / 周会 / 决策台账等）由戴时雨 CEO 账号上的 codex automation 独立管理，**不在本仓库**。
 
-| skill | 类型 | wiki 写 | base 写 | 用途 |
-|---|---|---|---|---|
-| **feishu-meeting-series-kb** | wiki 沉淀 | ✅ **唯一负责** | ❌ | 总结日会/周会 + 跨 session KB → 飞书 wiki |
-| **okr-evidence-compile** | 用户向 (KR owner self-run) | ✅ per-KR compile doc | ✅ KR 自己的 5 AI 字段 | KR evidence-based compile + 跨 entry 警示 |
-| **amazon-meeting-update-assistant** | 用户向 (单次手动) | ❌ | ✅ KR / 项目 / 任务 三层 | 会议纪要 → base 字段变更，preview-confirm |
-| **amazon-daily-kb-sync** | 用户向 (每日自跑) | ❌ | ✅ 自己的 🚦每周任务 + KR/项目 audit | 扫今天 evidence → 同步自己的行动项到 base |
-| **amazon-base-kb-bridge** | 底层库 | ❌ | ❌ | ownership 规则 / field map / 决策层 (被 amazon-* 调用) |
+| skill | 类型 | base 写 | 用途 |
+|---|---|---|---|
+| **okr-evidence-compile** | 用户向 (KR owner self-run) | ✅ KR 自己的 5 AI 字段 + per-KR wiki compile doc | KR evidence-based compile + 跨 entry 警示 |
+| **amazon-meeting-update-assistant** | 用户向 (单次手动) | ✅ KR / 项目 / 任务 三层 | 会议纪要 → base 字段变更，preview-confirm |
+| **amazon-daily-kb-sync** | 用户向 (每日自跑) | ✅ 自己的 🚦每周任务 + KR/项目 audit | 扫今天 evidence → 同步自己的行动项到 base |
+| **amazon-base-kb-bridge** | 底层库 | ❌（库本身不写）| ownership 规则 / field map / 决策层 (被 amazon-* 调用) |
+
+> Note: **`feishu-meeting-series-kb`** 之前在 v3 是 5 个 skill 之一，v4 移除——它纯是 CEO 账号的 wiki 沉淀 automation，不需要员工自跑也不需要打包分发。CEO 在自己 codex 客户端用 `automations/` 风格的 cron prompt 维护。
 
 ### 全部 ownership-scoped
 
@@ -30,9 +31,6 @@
 ### 依赖关系
 
 ```
-feishu-meeting-series-kb   (独立，wiki only)
-                                 ↑ read-only by daily-kb-sync if accessible
-
 okr-evidence-compile  (独立，KR-specific wiki doc + base)
 
 amazon-meeting-update-assistant ─┐
@@ -42,11 +40,11 @@ amazon-daily-kb-sync ─────────────┘
 
 ### 一句话决策树（怎么选 skill）
 
-- 要把今天日会 / 周会的内容**沉淀到飞书 wiki 文档** → **`feishu-meeting-series-kb`**
 - 要把自己 KR 的进度做 evidence-based compile（含 path drift 检测） → **`okr-evidence-compile`**
 - 拿到一份会议纪要 / 链接，想**手动**把它转成 base 字段变更 → **`amazon-meeting-update-assistant`**
 - 每天**自动**扫自己的 action items 同步到 🚦每周任务 → **`amazon-daily-kb-sync`**
 - 写自己的脚本想复用 ownership / field 决策规则 → **`amazon-base-kb-bridge`** (库)
+- 要把日会/周会沉淀到 wiki → 不在本仓库，由 CEO 自己 codex automation 跑
 
 ---
 

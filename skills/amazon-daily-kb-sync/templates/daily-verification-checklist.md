@@ -19,13 +19,13 @@
 
 - [ ] **本次跑没有调用任何 `docs +create` / `docs +update` / `wiki +node-create`**
 - [ ] **本次跑没有写入 `02 日会沉淀` / `04 决策与行动项追踪` 任何节点**
-- [ ] 如果需要 wiki 沉淀今天的会议摘要，应该单独跑 `feishu-meeting-series-kb`，不是本 skill 的职责
+- [ ] 如果需要 wiki 沉淀今天的会议摘要，应该单独跑 CEO 账号 wiki sinking automation (不在本仓库)，不是本 skill 的职责
 
 ## Weekly-Meeting Day Only
 
 - [ ] 7-day 汇总 + inconsistency 检测仅 scope 到 own records
 - [ ] inconsistency 仅在 console / preview 中显示，必要时 append 到对应 own record 的 `AI编译摘要` audit 字段
-- [ ] **没有**为 weekly 摘要单独写新 wiki 文档（那是 feishu-meeting-series-kb 的活）
+- [ ] **没有**为 weekly 摘要单独写新 wiki 文档（那是 CEO 账号 wiki sinking automation (不在本仓库) 的活）
 
 ## 来源 / 安全
 

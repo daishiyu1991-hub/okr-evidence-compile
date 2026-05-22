@@ -52,6 +52,7 @@
 暂未添加，按需补：
 
 - `amazon-daily-kb-sync-owner` —— per-owner 每日 base 写入 task（每个 owner 在自己电脑跑）
-- `feishu-meeting-daily-wiki-sync` —— 每日日会 wiki 沉淀 + render base view（CEO 账号跑）
 
-如要这两个 prompt，可以从主仓库的设计文档（`/Users/daishiyu/Documents/automation-*.md`）拉出。
+如要这个 prompt，可以从主仓库的设计文档（`/Users/daishiyu/Documents/automation-*.md`）拉出。
+
+> Note: **每日日会 wiki 沉淀 + render base view** 是 CEO 账号在自己 codex 客户端独立管理的 automation，**不打包分发**到本仓库——员工不需要跑。

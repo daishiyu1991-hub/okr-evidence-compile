@@ -20,7 +20,7 @@ Filter all reads to ME's scope:
   - KR (`👤个人OKR`): `执行人 == ME`
   - Project (`🧮团队项目清单`): `负责人 == ME`
   - Task (`🚦每周任务`): `执行人 == ME`
-- Optional: today's `feishu-meeting-series-kb` wiki output (if accessible, as a starting summary)
+- Optional: today's CEO 账号 wiki sinking automation (不在本仓库) wiki output (if accessible, as a starting summary)
 
 ## Write Targets (Base only)
 
@@ -36,8 +36,8 @@ Per-owner, ownership-gated:
 
 ## Forbidden Write Targets
 
-- ❌ Any Feishu wiki (use `feishu-meeting-series-kb`)
-- ❌ Any Feishu doc (use `feishu-meeting-series-kb`)
+- ❌ Any Feishu wiki (use CEO 账号 wiki sinking automation (不在本仓库))
+- ❌ Any Feishu doc (use CEO 账号 wiki sinking automation (不在本仓库))
 - ❌ KR / project formal fields (状态/进度) without strong evidence
 - ❌ Any Base record where `ME != owner`
 - ❌ New tasks with `执行人 != ME`
@@ -70,4 +70,4 @@ If two owners run at the exact same time:
 
 ## Wiki Boundary
 
-This skill **never** touches Feishu wiki. If you see code or workflow that writes to wiki here, it's a bug — wiki is `feishu-meeting-series-kb`'s domain. Daily / weekly meeting summaries belong there, not here.
+This skill **never** touches Feishu wiki. If you see code or workflow that writes to wiki here, it's a bug — wiki is CEO 账号 wiki sinking automation (不在本仓库)'s domain. Daily / weekly meeting summaries belong there, not here.

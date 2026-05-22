@@ -1,7 +1,7 @@
 ---
 name: amazon-daily-kb-sync
 version: 0.3.0
-description: Per-owner daily Base sync for 86lux Amazon target-management. Each teammate runs this on their own codex laptop to identify their own action items from today's Feishu meetings/chats/docs/base-deltas and sync them into the 🚦每周任务 Base table (with assignee=ME), plus audit-field writes on own KR/project records they touched today. On weekly-meeting day, also adds own-record inconsistency detection. STRICT scope — Base writes only, no wiki writes (use `feishu-meeting-series-kb` for daily/weekly meeting wiki summaries).
+description: Per-owner daily Base sync for 86lux Amazon target-management. Each teammate runs this on their own codex laptop to identify their own action items from today's Feishu meetings/chats/docs/base-deltas and sync them into the 🚦每周任务 Base table (with assignee=ME), plus audit-field writes on own KR/project records they touched today. On weekly-meeting day, also adds own-record inconsistency detection. STRICT scope — Base writes only, no wiki writes (use CEO 账号 wiki sinking automation (不在本仓库) for daily/weekly meeting wiki summaries).
 metadata:
   requires:
     bins: ["lark-cli", "jq", "python3", "date"]
@@ -24,7 +24,7 @@ Each teammate runs this daily on their own codex laptop. The skill is **Base-tab
   - Audit fields on ME-owned KR (`👤个人OKR`) / project (`🧮团队项目清单`) / task records touched today
 - On weekly-meeting day, also run own-record inconsistency detection
 
-**This skill does NOT write to Feishu wiki.** Daily / weekly meeting wiki summaries are written by `feishu-meeting-series-kb`. If you need a wiki-side daily summary, run that skill separately.
+**This skill does NOT write to Feishu wiki.** Daily / weekly meeting wiki summaries are written by CEO 账号 wiki sinking automation (不在本仓库). If you need a wiki-side daily summary, run that skill separately.
 
 **Multi-user safe by design**: 4 owners run concurrently with disjoint write sets:
 - Each only touches records where `执行人/负责人 == ME`
@@ -43,16 +43,16 @@ Reuse `amazon-base-kb-bridge` for ownership rules, field mapping, confidence rul
 
 ### What this skill does NOT write to
 
-- ❌ Feishu wiki (any node, any space) — use `feishu-meeting-series-kb`
-- ❌ Feishu docs (any) — use `feishu-meeting-series-kb`
+- ❌ Feishu wiki (any node, any space) — use CEO 账号 wiki sinking automation (不在本仓库)
+- ❌ Feishu docs (any) — use CEO 账号 wiki sinking automation (不在本仓库)
 - ❌ Per-owner daily log doc — concept dropped from v3 (was an error in v0.2.0)
-- ❌ Shared `02 日会沉淀` daily page — that's `feishu-meeting-series-kb`'s job
+- ❌ Shared `02 日会沉淀` daily page — that's CEO 账号 wiki sinking automation (不在本仓库)'s job
 - ❌ KR / project formal status fields (状态/进度) without strong evidence
 - ❌ Records not owned by ME
 
 ### Read inputs (read-only)
 
-- `feishu-meeting-series-kb` daily wiki output (if it ran today and ME wants to use it as a starting summary)
+- CEO 账号 wiki sinking automation (不在本仓库) daily wiki output (if it ran today and ME wants to use it as a starting summary)
 - Feishu group chat messages (ME-relevant in `🚀亚马逊攻坚小分队` etc.)
 - Feishu minutes / vc records (where ME is participant or owner)
 - Same-day Base deltas filtered to ME's owned records
@@ -72,7 +72,7 @@ Reuse `amazon-base-kb-bridge` for ownership rules, field mapping, confidence rul
    - Meetings where ME is participant: `lark-cli minutes/vc/calendar +search --participant-ids me --start <today> --end <today>`
    - ME-relevant excerpts from `🚀亚马逊攻坚小分队` group conclusions (read all, compile only what mentions ME or ME's KR/project)
    - Same-day Base deltas where ME owns the record (KR / project / task)
-   - Optional: today's `feishu-meeting-series-kb` wiki output, if accessible, as a starting summary
+   - Optional: today's CEO 账号 wiki sinking automation (不在本仓库) wiki output, if accessible, as a starting summary
 3. **Extract candidate action items**:
    - For each item: try to identify `assignee` (open_id resolved via `lark-contact`)
    - Items where `assignee == ME` → include in "to sync" list
@@ -101,7 +101,7 @@ Reuse `amazon-base-kb-bridge` for ownership rules, field mapping, confidence rul
 | `force_ownership_bypass` | no | `false` | If true, skip ownership scope check (CEO audit only) |
 | `weekly_meeting_day` | no | `"mon"` | which weekday triggers weekly inconsistency detection |
 | `evidence_chats` | no | `["🚀亚马逊攻坚小分队"]` | which group chats to scan for ME-relevant content |
-| `read_meeting_kb` | no | `true` | If true, attempt to read today's `feishu-meeting-series-kb` wiki output as a starting summary |
+| `read_meeting_kb` | no | `true` | If true, attempt to read today's CEO 账号 wiki sinking automation (不在本仓库) wiki output as a starting summary |
 
 ## Failure Handling
 
@@ -113,7 +113,7 @@ Reuse `amazon-base-kb-bridge` for ownership rules, field mapping, confidence rul
 
 ## Don't
 
-- Don't write to ANY Feishu wiki / doc (use `feishu-meeting-series-kb` instead)
+- Don't write to ANY Feishu wiki / doc (use CEO 账号 wiki sinking automation (不在本仓库) instead)
 - Don't write to records you don't own (ownership check is absolute)
 - Don't create tasks for other people (force `执行人 = ME`)
 - Don't sync cross-owner action items into `🚦每周任务` (let the rightful owner sync from their own machine)
@@ -129,12 +129,12 @@ Reuse `amazon-base-kb-bridge` for ownership rules, field mapping, confidence rul
 ## Dependencies (other skills)
 
 - `amazon-base-kb-bridge` (ownership rules, field map, scripts for preview-build + inconsistency detect, confidence rules)
-- `feishu-meeting-series-kb` (READ-ONLY: optionally read its daily wiki output as starting summary; this skill never writes wiki itself)
+- CEO 账号 wiki sinking automation (不在本仓库) (READ-ONLY: optionally read its daily wiki output as starting summary; this skill never writes wiki itself)
 - Official lark-* skills (`lark-base`, `lark-vc`, `lark-minutes`, `lark-contact`, `lark-im`)
 
-## Relationship to feishu-meeting-series-kb
+## Relationship to CEO 账号 wiki sinking automation (不在本仓库)
 
-| Concern | feishu-meeting-series-kb | amazon-daily-kb-sync (this) |
+| Concern | CEO 账号 wiki sinking automation (不在本仓库) | amazon-daily-kb-sync (this) |
 |---|---|---|
 | Daily meeting wiki summary | ✅ writes (e.g., `02 日会沉淀/...`) | ❌ doesn't write |
 | Weekly meeting wiki summary | ✅ writes | ❌ doesn't write |
@@ -143,4 +143,4 @@ Reuse `amazon-base-kb-bridge` for ownership rules, field mapping, confidence rul
 | Trigger model | manual (per series / per date) | daily self-run (per owner) |
 | Concurrency safety | Single wiki page if multi-owner (use carefully) | Per-owner ownership scope → safe |
 
-**Workflow**: `feishu-meeting-series-kb` summarizes today's meetings into wiki (team-visible). `amazon-daily-kb-sync` then (optionally reading that wiki output) syncs ME's action items to Base. Two skills, two artifacts, no overlap.
+**Workflow**: CEO 账号 wiki sinking automation (不在本仓库) summarizes today's meetings into wiki (team-visible). `amazon-daily-kb-sync` then (optionally reading that wiki output) syncs ME's action items to Base. Two skills, two artifacts, no overlap.

@@ -47,11 +47,11 @@ The full inconsistency analysis (with cross-record references) is shown in the c
 
 ## Wiki Boundary
 
-Weekly compile detection still doesn't touch wiki. The team's weekly meeting summary on wiki is `feishu-meeting-series-kb`'s job (its weekly-series KB compile).
+Weekly compile detection still doesn't touch wiki. The team's weekly meeting summary on wiki is CEO 账号 wiki sinking automation (不在本仓库)'s job (its weekly-series KB compile).
 
 If the weekly compile flow needs to surface a long-form summary, the right path is:
 1. `amazon-daily-kb-sync` produces the JSON / console summary (this skill's output)
 2. Owner reads it
-3. Owner / `feishu-meeting-series-kb` writes the human-readable summary into the team weekly meeting wiki page (separate skill run)
+3. Owner / CEO 账号 wiki sinking automation (不在本仓库) writes the human-readable summary into the team weekly meeting wiki page (separate skill run)
 
 Do not let the lines blur.
