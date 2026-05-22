@@ -14,10 +14,10 @@ Each KR owner runs this skill on their own machine to compile their own KR recor
 
 ```bash
 # install for both codex + claude-code
-npx skills add 86lux/okr-evidence-compile -y
+npx skills add daishiyu1991-hub/okr-evidence-compile -y
 
 # or scope to current project
-npx skills add 86lux/okr-evidence-compile -p
+npx skills add daishiyu1991-hub/okr-evidence-compile -p
 ```
 
 This puts the skill under `~/.agents/skills/okr-evidence-compile/`. Both codex and Claude Code will discover it automatically.
@@ -25,7 +25,7 @@ This puts the skill under `~/.agents/skills/okr-evidence-compile/`. Both codex a
 ### Option B — manual clone (fallback)
 
 ```bash
-git clone git@github.com:86lux/okr-evidence-compile.git ~/.codex/skills/okr-evidence-compile
+git clone https://github.com/daishiyu1991-hub/okr-evidence-compile.git ~/.codex/skills/okr-evidence-compile
 ```
 
 ### Required tools on your machine
