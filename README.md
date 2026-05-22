@@ -6,29 +6,47 @@
 
 ---
 
-## Skills 清单 (v2 — ownership-scoped, multi-user safe)
+## Skills 清单 (v3 — 职责清晰分离：wiki vs base)
 
-5 个 skill 一起构成 86lux 在飞书 Base + 知识库上做"OKR 落地 + 项目同步 + 任务追踪"的完整工具链。**全部都是 ownership-scoped**：每个员工只能在 codex 上写自己持有的 record / 自己的页面。
+5 个 skill 构成 86lux 在飞书 Base + 知识库上的工具链。**核心设计原则：feishu-meeting-series-kb 独占 wiki 写入，其他 amazon-* skills 独占 base 表写入**。
 
-| skill | 类型 | 用途 | 路径 |
-|---|---|---|---|
-| **okr-evidence-compile** | 用户向 | KR owner 自跑、evidence-based OKR compile，写自己 KR 的 5 个 AI 字段 + 每 KR 1 个 wiki doc append history。严格 ownership 安全（仅本人能跑自己的 KR）+ anti-hallucination + 跨 entry 警示。 | [`skills/okr-evidence-compile/`](skills/okr-evidence-compile/) |
-| **amazon-meeting-update-assistant** | 用户向 | 把会议纪要 / 飞书链接 / daily-page / chat 摘要 / 手工 update 转成 Base 字段变更，preview-first 确认流。**v2 加 ownership check**：只能改自己持有的 KR / 项目 / 任务。Cross-owner action items 列出但不写入。 | [`skills/amazon-meeting-update-assistant/`](skills/amazon-meeting-update-assistant/) |
-| **amazon-daily-kb-sync** | 用户向 (每日自跑) | 每天扫自己参与的会议 / 群结论 / Base 变更，append 1 entry 到自己专属的 `日会同步日志 · <owner>` doc。同步自己的行动项到 🚦每周任务。周会日附加 7 天自有记录汇总。**v2 per-owner doc，多人并发安全。** | [`skills/amazon-daily-kb-sync/`](skills/amazon-daily-kb-sync/) |
-| **amazon-base-kb-bridge** | 底层库 | 共享决策层：field map / ownership check 规则 / confidence rules / inconsistency detection。被 meeting-update-assistant + daily-kb-sync 共用，不直接调。**v2 加 ownership scoping** spec。 | [`skills/amazon-base-kb-bridge/`](skills/amazon-base-kb-bridge/) |
-| **feishu-meeting-series-kb** | 底层库 | 通用：处理任何 Feishu 周期性会议系列（周会 / 培训 / 选题 / review）→ 跨 session ledger + 持续维护的 KB。被 daily-kb-sync 用作 meeting discovery 底座。 | [`skills/feishu-meeting-series-kb/`](skills/feishu-meeting-series-kb/) |
+| skill | 类型 | wiki 写 | base 写 | 用途 |
+|---|---|---|---|---|
+| **feishu-meeting-series-kb** | wiki 沉淀 | ✅ **唯一负责** | ❌ | 总结日会/周会 + 跨 session KB → 飞书 wiki |
+| **okr-evidence-compile** | 用户向 (KR owner self-run) | ✅ per-KR compile doc | ✅ KR 自己的 5 AI 字段 | KR evidence-based compile + 跨 entry 警示 |
+| **amazon-meeting-update-assistant** | 用户向 (单次手动) | ❌ | ✅ KR / 项目 / 任务 三层 | 会议纪要 → base 字段变更，preview-confirm |
+| **amazon-daily-kb-sync** | 用户向 (每日自跑) | ❌ | ✅ 自己的 🚦每周任务 + KR/项目 audit | 扫今天 evidence → 同步自己的行动项到 base |
+| **amazon-base-kb-bridge** | 底层库 | ❌ | ❌ | ownership 规则 / field map / 决策层 (被 amazon-* 调用) |
+
+### 全部 ownership-scoped
+
+每个员工只能在 codex 上写自己持有的 record：
+
+- `KR.执行人 == ME` 才允许写
+- `项目.负责人 == ME` 才允许写
+- `任务.执行人 == ME` 才允许更新；新建任务强制 `执行人 = ME`
+- 跨 owner action item → preview 列出但不真写
 
 ### 依赖关系
 
 ```
-okr-evidence-compile  (独立，仅依赖 lark-cli)
-                          
+feishu-meeting-series-kb   (独立，wiki only)
+                                 ↑ read-only by daily-kb-sync if accessible
+
+okr-evidence-compile  (独立，KR-specific wiki doc + base)
+
 amazon-meeting-update-assistant ─┐
-                                  ├──→ amazon-base-kb-bridge  ★ 共享决策 + Python 脚本
-amazon-daily-kb-sync ─────────────┘            
-                                  │
-                                  └──→ feishu-meeting-series-kb  ★ 通用 Feishu 会议底座
+                                  ├──→ amazon-base-kb-bridge  (ownership + scripts)
+amazon-daily-kb-sync ─────────────┘
 ```
+
+### 一句话决策树（怎么选 skill）
+
+- 要把今天日会 / 周会的内容**沉淀到飞书 wiki 文档** → **`feishu-meeting-series-kb`**
+- 要把自己 KR 的进度做 evidence-based compile（含 path drift 检测） → **`okr-evidence-compile`**
+- 拿到一份会议纪要 / 链接，想**手动**把它转成 base 字段变更 → **`amazon-meeting-update-assistant`**
+- 每天**自动**扫自己的 action items 同步到 🚦每周任务 → **`amazon-daily-kb-sync`**
+- 写自己的脚本想复用 ownership / field 决策规则 → **`amazon-base-kb-bridge`** (库)
 
 ---
 

@@ -11,6 +11,26 @@ Turn a repeated meeting series into a durable knowledge base. The unit is the se
 
 Prefer `lark-cli` / `feishu` as the data path. When the task needs exact Feishu command patterns, read [feishu-cli-workflow.md](references/feishu-cli-workflow.md). When creating the final artifact, read [kb-output-contract.md](references/kb-output-contract.md).
 
+## Scope Boundary (vs base-writing skills)
+
+**This skill writes ONLY to Feishu wiki / docs / drive. It does NOT write to Feishu Base tables.**
+
+For Base writes (KR / 长期项目 / 任务 fields, audit fields, action-item-to-task sync), use the dedicated base skills:
+
+- `amazon-meeting-update-assistant` — one-shot meeting → Base writes with preview/confirm
+- `amazon-daily-kb-sync` — per-owner daily sync of own action items → `🚦每周任务` Base table + audit fields on own KR/project
+- `okr-evidence-compile` — KR owner self-run, write own KR's 5 AI fields + per-KR compile doc
+
+Conversely those skills **never write wiki** — that's this skill's job.
+
+Use this skill when you want a durable wiki knowledge artifact:
+- Daily / weekly meeting summary written to a wiki page
+- Cross-session ledger for a recurring meeting series
+- Onboarding KB for new teammates joining a meeting series
+- Decision history / open loops tracked over time in a wiki doc
+
+Do NOT use this skill when you want to mutate Base records — that's outside the scope.
+
 ## Default Behavior
 
 - If the user gives a series name but no date range, search the last 90 days first.
