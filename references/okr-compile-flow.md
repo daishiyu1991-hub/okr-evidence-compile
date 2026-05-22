@@ -122,15 +122,78 @@ lark-cli base +record-search \
 
 关键词选择：从 KR 文本抽 1-2 个具体业务词（不要用通用词如"完成"/"AI"/"项目"，用业务术语如"目标管理"/"AI化"/"集成到面板"）。
 
-## Step 4：Claude API compile（外部调用）
+## Step 4：Compile（运行 agent **自己**做，不要 shell out）
 
-Prompt 详见 v3.3 plan 文件（见 plan 文件 Step 4 完整 prompt 体）。任务结构：
+**重要**：本步骤 = 当前运行的 agent（codex 或 claude-code）**自己**消费 Step 1-3 拿到的 evidence pool 并产出 JSON。
 
-- 任务 1：path alignment 分类（directly_contributes / tangentially_related / off_path）
-- 任务 2：path_alignment_score + off_path_ratio + path_drift（off_path > 0.30）
-- 任务 3：进度推断 + 摘要（path_drift=true → 进度 null + 摘要前置 ⚠️ 警示）
+❌ **不要**这么做：
+- `claude -p --output-format json < prompt.md` ── shell out 到 Claude Code CLI，会因 claude CLI 没单独认证而 401
+- `curl -X POST https://api.anthropic.com/v1/messages ...` ── 调外部 Anthropic API（员工机器一般没配 `ANTHROPIC_API_KEY`，且会扣 API 额度）
+- 调 `codex exec` 套娃自己
 
-输出严格 JSON。
+✅ **正确做法**：你（当前 agent）就是 LLM。把 Step 1-3 拿到的所有 evidence 字段值作为输入，按下面的任务规范推理，emit JSON。
+
+### 任务规范
+
+**输入**：
+- Step 1 target record 全字段（KR 文本、O 名、执行人、进度字段值、关联字段、AI 字段当前值）
+- Step 2 拉到的所有 linked team_okr / project / task records（每个的标题 + 状态 + 进度 + 描述字段）
+- Step 3 meetings + weeklies search 结果（hit 的 records 全字段；如果搜索 API 报 `OpenAPISearchRecord limited`，记录 limited 状态、走 fallback list+filter，或在缺失警示里 flag）
+
+**输出**：严格 JSON（无 markdown wrap）：
+
+```json
+{
+  "evidence_classifications": [
+    {
+      "record_id": "<from raw>",
+      "table": "team_okr|project|task|meeting|weekly_report",
+      "label": "directly_contributes|tangentially_related|off_path",
+      "reason": "<引用具体字段值>"
+    }
+  ],
+  "path_alignment_score": <0..1>,
+  "off_path_ratio": <0..1>,
+  "path_drift": <boolean>,
+  "进度推断": <integer 0-100 OR null>,
+  "进度推断依据": "<引用 record_id + 字段>",
+  "AI编译摘要": "<≤200 字>",
+  "confidence": "high|low",
+  "缺失警示": ["<具体缺失项>"],
+  "human_snapshot": "<现状一句话>",
+  "human_entry": {
+    "现状": "<2-3 句>",
+    "怎么办": ["<行动项 1>", "<行动项 2>"],
+    "为什么": "<1-2 句根因>"
+  }
+}
+```
+
+### 任务结构
+
+- **任务 1**：每条 evidence record 分类
+  - `directly_contributes` — record 字段值明确提到本 KR / 完成本 KR / 子任务推进本 KR
+  - `tangentially_related` — 同 O 不同 KR，或 KR 周边话题
+  - `off_path` — 跟 KR 无关 / 占位符 record / 已废弃
+- **任务 2**：算 ratio
+  - `path_alignment_score` = directly_contributes 占总 evidence 比
+  - `off_path_ratio` = off_path 占总 evidence 比
+  - `path_drift` = (off_path_ratio > 0.30) OR (directly_contributes 0 且 evidence ≥ 3)
+- **任务 3**：进度推断 + 摘要
+  - `path_drift=true` → `进度推断=null`、`AI编译摘要` 必须以 `⚠️ path drift` 开头
+  - `evidence` 空（所有 link 字段 null + 搜索 0 hit） → `进度推断=null`、`confidence=low`、`AI编译摘要` 报告"evidence 缺失"
+  - `evidence` 充足 + path 对齐 → `进度推断` = integer 0-100，依据必须引用具体 record_id 字段值
+- **任务 4（human-readable）**：填 `human_snapshot` + `human_entry`，给真人读，用大白话写"现状/怎么办/为什么"
+
+### 严格遵守 anti-hallucination
+
+详见 `references/anti-hallucination.md` 6 条规则。要点：
+
+1. `evidence_classifications[].record_id` 必须出现在 Step 1-3 raw 输出里，禁止编
+2. 不允许凭空生成进度数字（要么有 evidence 支持，要么 null）
+3. `缺失警示` 必须列出实际缺失项（关联字段空 / 搜索 0 hit / 间接关联全占位 / API limited），不要省略
+4. `AI编译摘要` 长度 ≤ 200 字（base 字段会再截到 80 字，见 Step 5）
+5. 不允许编 `reason` 内容——只能引用 raw record 的字段值原文
 
 ## Step 4.5：Doc 写入（按分支判定）
 

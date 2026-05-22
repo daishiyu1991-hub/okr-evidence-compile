@@ -40,7 +40,7 @@ Reference plan: `/Users/daishiyu/.claude/plans/obsidian-open-vault-obsidian-20va
 2. **Ownership check** (Step 1.5): assert current lark-cli user open_id == record `执行人` open_id; otherwise abort unless `force_ownership_bypass=true`. **All subsequent write actions depend on this check passing.**
 3. **Pull evidence**: get linked 🧮团队项目清单 + 🚦每周任务 + 👪团队OKR records
 4. **Scan context**: search 📖会议纪要 + 📅周报 within `evidence_lookback_weeks` window for KR keyword
-5. **Compile**: feed evidence to Claude API with the 3-task prompt (classify / score / summarize). Receive JSON.
+5. **Compile**: the **running agent itself** (codex or claude-code) consumes the evidence pool and emits the compile JSON (classify / score / summarize / human-readable conclusion). **Do NOT shell out to `claude` CLI** (it requires separate auth) **or curl Anthropic API** (employee machines usually don't have `ANTHROPIC_API_KEY`). See `references/okr-compile-flow.md` Step 4 for the full output schema + task spec.
 6. **Approve gate**: present Step 5 JSON to caller; wait OK. Skip if `auto_approve=true`.
 7. **Doc write** (Step 4.5 logical step): determine branch by reading record's `最近更新来源` field:
    - Empty/null → create new doc with 1 entry
@@ -65,7 +65,7 @@ Reference plan: `/Users/daishiyu/.claude/plans/obsidian-open-vault-obsidian-20va
 - **Ownership mismatch + `force_ownership_bypass=false`**: print clear message + abort. Do NOT write anything.
 - Permission errors on a sub-table → record `permission_blocked` for that source, continue with accessible sources. Reflect in 缺失警示.
 - Empty linked records → valid result B. Report 「evidence 缺失：...」 honestly. Do not invent.
-- Claude API timeout → retry once. If still fails → abort writeback, surface error.
+- Step 5 compile produces malformed JSON (missing required keys, wrong types) → retry once with stricter schema instruction. If still fails → abort writeback, surface raw output.
 - Pre-existing 待人工确认=true on the record → still proceed. The new write overwrites with current run's reasoning.
 - Doc create/update error → do NOT proceed to base writeback (avoids dangling abstract pointing to invalid doc URL). Surface lark-cli error, ask user.
 - Base writeback error → do not retry blindly. Surface lark-cli error, ask user. Note: doc may have been written successfully even if base failed — caller should reconcile.
