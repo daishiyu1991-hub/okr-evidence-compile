@@ -45,7 +45,7 @@ Reference plan: `/Users/daishiyu/.claude/plans/obsidian-open-vault-obsidian-20va
 7. **Doc write** (Step 4.5 logical step): determine branch by reading record's `最近更新来源` field:
    - Empty/null → create new doc with 1 entry
    - Contains plan path (v3.3 historical) → create new doc with entry #0 (v3.3 retro) + entry #1 (current)
-   - Contains doc URL → fetch doc, prepend new entry, update doc
+   - Contains doc URL → fetch doc, **parse all historical entries' key fields** (path_drift/confidence/进度推断/缺失警示), prepend new entry, **conditionally render `⚠️ 跨 entry 警示` section at top if latest is more optimistic than any historical** (5 trigger conditions in `doc-template.md` §「跨 entry 警示 渲染规则」), update doc.
    See `references/doc-template.md` for exact branch logic and the markdown template.
 8. **Base writeback** via `lark-cli base +record-batch-update`: 5 AI fields only. `AI编译摘要` = abstract (≤80 字); `最近更新来源` = doc URL (replaces v3.3 plan path).
 9. **Verify** via `lark-cli base +record-get`, confirm 5 fields written + 「状态」/「进度」untouched.

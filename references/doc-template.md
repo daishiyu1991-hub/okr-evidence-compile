@@ -44,6 +44,24 @@ OKR Compile · 戴时雨 · O1-O1 ai化 · KR1 完成目标管理AI化，集成�
 
 ---
 
+## ⚠️ 跨 entry 警示（latest 比 history 更乐观）
+
+> **本段仅当 latest entry 比某条历史 entry "更乐观" 时渲染。无矛盾则整段省略（不留空标题）。** 详见 §「跨 entry 警示 渲染规则」。
+
+下面警示在 historical entry 里出现过、但 **#<latest_N> 本次没复现**。可能是 evidence 真的变了，也可能是不同 agent compile / 不同 evidence_window 判定不一致——**owner 应手动判断哪个结论正确**。
+
+- **#<old_N>** (<trigger>) 报 `path_drift=true`，但 #<latest_N> 报 `path_drift=false`
+- **#<old_N>** (<trigger>) 报 `confidence=low` / `待人工确认=true`，但 #<latest_N> 未维持
+- **#<old_N>** (<trigger>) 报 evidence 缺失（<列 1-2 项>），但 #<latest_N> 未维持
+- **#<old_N>** (<trigger>) `进度推断=null`（曾 path_drift），但 #<latest_N> 推断进度=<N>%
+
+**行动选项**：
+1. 你确认 #<latest_N> 正确 → 手动取消 base 「待人工确认」复选框
+2. 你确认 #<old_N> 正确 → 补底层 evidence（关联项目/任务/周报），然后 rerun skill
+3. 不确定 → 保持现状，下次 self-run 看趋势
+
+---
+
 ## 当前状态 snapshot (latest)
 
 - **KR**: <KR-关键结果 文本>
@@ -149,6 +167,46 @@ OKR Compile · 戴时雨 · O1-O1 ai化 · KR1 完成目标管理AI化，集成�
 
 - 「👤 结论」段：服务 owner / CEO / 非技术员工。**先放，先看。**
 - 「机器读结构」段（摘要 / Evidence classifications 表 / 缺失警示 / Raw JSON）：服务 audit / debug / 自动化。**后放，按需展开。**
+
+## 跨 entry 警示 渲染规则（v4.5 新增）
+
+doc 顶部「⚠️ 跨 entry 警示」section 是 **conditional render**：仅当 latest entry 比某条 historical entry "更乐观" 时才出现。**无矛盾就完全省略整段（不留空标题、不留 "无警示" 占位）**。
+
+### 渲染步骤（每次 prepend new entry 时执行）
+
+1. fetch 现有 doc markdown
+2. parse 所有 historical entries 的「机器读结构」段，提取每个 entry 的 key fields：
+   - `path_drift` (true|false)
+   - `confidence` (high|low)
+   - `进度推断` (integer | null)
+   - `缺失警示` (list)
+   - 从 entry 的「最近更新原因」字段或 trigger 抽 trigger string
+3. 跟本次 latest entry 比对
+4. 任一矛盾命中 → 渲染本段；全部一致 → 跳过
+
+### 矛盾命中条件（任一 true → render）
+
+| 条件 | latest | history 任一 | 解释 |
+|---|---|---|---|
+| 1 | `path_drift=false` | `path_drift=true` | AI 不再认为偏离路径，但历史报过 |
+| 2 | `confidence=high` | `confidence=low` | AI 这次信心更足，但历史不确定 |
+| 3 | `缺失警示=[]` | `缺失警示=[<非空>]` | AI 这次不报缺失，但历史报过 |
+| 4 | `进度推断=integer` | `进度推断=null AND path_drift=true` | AI 这次推断了进度，但历史因 drift 拒绝推断 |
+| 5 | `待人工确认=false` | `待人工确认=true` | AI 这次降级了确认要求 |
+
+> 条件 5 实际等同于"path_drift OR confidence=low" 触发，所以重叠条件 1+2。但显式列出便于 audit。
+
+### 渲染时只 surface "命中的"那几条
+
+- 比如只有条件 1 命中 → 只渲染 "path_drift=true→false" 那一 bullet
+- 多条命中 → 多 bullets
+- 每条 bullet 用具体 entry 号（`#<old_N>`）+ trigger string，方便 owner 直接定位到 history 那一段
+
+### 不应该 surface 的情况（保持沉默）
+
+- latest 更**保守**（latest.path_drift=true、history.path_drift=false）── 这是 entry 本身的警示职责，不要重复 surface
+- 历史 entry 之间互相矛盾、但 latest 跟所有都一致 ── 不关 latest 的事
+- 只有「最新摘要 abstract」文字不同 ── 文字差异不算结构性矛盾
 
 ## abstract 抽取规则（≤80 字）
 

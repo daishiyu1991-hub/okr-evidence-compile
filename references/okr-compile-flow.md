@@ -250,6 +250,15 @@ lark-cli docs +update --as user --doc "$DOC_TOKEN" --markdown @/tmp/okr-doc-new-
 
 注：`lark-cli docs +update` 的具体 flag 可能不同，调用前 `lark-cli docs +update --help` 确认。
 
+**重要 v4.5 新增**：分支 C（doc 已存在 + append）时，agent 必须额外做**跨 entry 警示渲染**：
+
+1. parse 所有 historical entries 的「机器读结构」段（不只是抽 max entry 号），提取每个 entry 的 `path_drift / confidence / 进度推断 / 缺失警示 / trigger`
+2. 跟本次 latest 比对，按 `references/doc-template.md` §「跨 entry 警示 渲染规则」5 条命中条件判断
+3. 任一命中 → 在 latest doc 顶部「👤 当前结论」段**之后、** 「当前状态 snapshot」段**之前** render 「⚠️ 跨 entry 警示」section，列出具体哪些命中
+4. 全部一致 → **完全省略整段**（不要留空标题占位）
+
+这一步存在的意义：防止"AI 不同 run 结论矛盾"被悄悄埋进 history。owner 只看顶部时也能看到"过去说过有问题、这次没复现"的信号。
+
 ## Step 5：写回 KR record 5 个 AI 字段（写 — Step 1.5 ownership 必通过）
 
 ```bash
