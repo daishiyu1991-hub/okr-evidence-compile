@@ -1,0 +1,4 @@
+interface:
+  display_name: "Amazon Daily Sync"
+  short_description: "Per-owner daily Feishu evidence → Base sync with turn-based routing review"
+  default_prompt: "Scan today's Feishu group chats + meetings for ME-relevant evidence, extract candidates, present REVIEW QUEUE with 5 routing options (task / project_activity / team_project_draft / audit_only / skip), then write to Base after user confirms."
