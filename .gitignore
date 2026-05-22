@@ -1,0 +1,27 @@
+# local scratch files
+*.log
+*.tmp
+/tmp/
+
+# editor artifacts
+.vscode/
+.idea/
+*.swp
+*~
+
+# macOS
+.DS_Store
+
+# python
+__pycache__/
+*.pyc
+
+# secrets safeguard (just in case)
+*.env
+*.secret
+.tokens
+
+# build artifacts (none expected, but defensive)
+dist/
+build/
+node_modules/
