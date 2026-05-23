@@ -1,5 +1,0 @@
-interface:
-  display_name: "Amazon Daily KB Sync"
-  short_description: "Daily and weekly Amazon KB compilation from Feishu and Base"
-  default_prompt: "Run the Amazon daily knowledge-base sync, preserving raw evidence and Base truth while compiling daily or weekly summaries."
-

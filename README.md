@@ -13,8 +13,7 @@ daishiyu1991-hub/okr-evidence-compile/
 │
 ├── automations/     ← 每个员工在自己 codex 客户端跑的东西（owner self-run / cron）
 │   ├── okr-evidence-compile/
-│   ├── amazon-meeting-update-assistant/
-│   ├── amazon-daily-kb-sync/
+│   ├── amazon-daily-sync/       (v0.4 merged: daily-kb-sync + meeting-update-assistant)
 │   └── okr-weekly-ritual/
 │
 └── libraries/       ← 给 automations 调用的共享库 / 决策规则，不直接跑
@@ -23,16 +22,17 @@ daishiyu1991-hub/okr-evidence-compile/
 
 ---
 
-## Automations 清单（4 个）
+## Automations 清单（3 个）
 
 每个员工各自在自己电脑 codex 客户端跑，**全部 ownership-scoped**（只能动 `执行人/负责人 == ME` 的 records；新建 task 强制 `执行人=ME`）。
 
 | automation | 触发模式 | 干什么 | 写哪 |
 |---|---|---|---|
 | **`okr-evidence-compile`** | KR owner 手动或 cron 触发 | 对单条 KR 做 evidence-based compile，分析它有没有 path drift（KR 字段写的 60% 进度是不是真的有 evidence 支撑）| 写 base.KR 的 5 个 audit 字段 + 每 KR 1 个 wiki compile doc append history |
-| **`amazon-meeting-update-assistant`** | 拿到 1 份会议纪要时手动触发 | 把会议讨论 → 转成 base 字段变更预览 → 你 confirm 后写入 KR/项目/任务 | 写 base 三层（仅自己 own 的）|
-| **`amazon-daily-kb-sync`** | 每天晚上 cron 自动跑 | **扫今天 Feishu 会议+群讨论+Base 变更里属于你的行动项 → 同步到 `🚦每周任务` Base 表** | 写 base.🚦每周任务（自己的）+ 自己 KR/项目 audit 字段 |
+| **`amazon-daily-sync`** (v0.4) | 每天晚上 cron 自动跑 + turn-based 对话 | 扫今天 Feishu 群聊 (3-layer filter) + 会议/妙记 → 抽 candidates → REVIEW QUEUE 引导 owner 决策 → 5 个 routing 之一: 🚦task / 📊项目活动 / 🧮团队项目草稿 / 📝仅audit / ⏭️skip | base 三层 (含 task / 项目活动) + 仅 audit 字段 + wiki 草稿 (team_project_draft) |
 | **`okr-weekly-ritual`** | 每周一 9:00 cron | OKR 4-phase 周仪式：复盘上周 + 补建 gap + 规划本周 + 推群 | 写 base 三层 + wiki final 报告 |
+
+> Note: 旧 `amazon-meeting-update-assistant` + `amazon-daily-kb-sync` 已合并到 `amazon-daily-sync` v0.4。两个原 skill 在 commit `3f62398` 之后移除，历史可 git log 看。合并理由：日常每天都有会议+群讨论，分两个 skill 必然重合；合并后单一 skill 走 turn-based routing review，owner 直接决定每条 evidence 归哪个 base 表。
 
 ---
 
@@ -44,7 +44,7 @@ daishiyu1991-hub/okr-evidence-compile/
 
 ### `amazon-base-kb-bridge` 是啥？
 
-**它不是自动化、也不直接被 owner 跑**。它是 `amazon-meeting-update-assistant` + `amazon-daily-kb-sync` 共用的**底层逻辑库**。
+**它不是自动化、也不直接被 owner 跑**。它是 `amazon-daily-sync` 调用的**底层逻辑库**。
 
 名字有点误导——「kb」容易让人以为它跟 wiki 知识库相关。其实 **kb-bridge 全部跟"飞书 Base 表的写入决策"有关**，跟 wiki 完全无关。
 
@@ -61,12 +61,10 @@ daishiyu1991-hub/okr-evidence-compile/
 ### 谁在用它
 
 ```
-amazon-meeting-update-assistant ─┐
-                                  ├──→ amazon-base-kb-bridge
-amazon-daily-kb-sync ─────────────┘
-                                  │
-okr-evidence-compile              └──→ 不依赖 kb-bridge（独立运行，自带 ownership check）
-okr-weekly-ritual                 └──→ 不依赖 kb-bridge（prompt 自包含全部规则）
+amazon-daily-sync ──→ amazon-base-kb-bridge (ownership / field-map / 脚本)
+
+okr-evidence-compile ──→ 不依赖 (独立运行, 自带 ownership check)
+okr-weekly-ritual    ──→ 不依赖 (prompt 自包含全部规则)
 ```
 
 ### 你需不需要装？
@@ -74,26 +72,27 @@ okr-weekly-ritual                 └──→ 不依赖 kb-bridge（prompt 自�
 | 你是谁 | 要不要装 kb-bridge |
 |---|---|
 | 用 `okr-evidence-compile` / `okr-weekly-ritual` 的人 | ❌ 不需要——它们独立运行 |
-| 用 `amazon-meeting-update-assistant` / `amazon-daily-kb-sync` 的人 | ✅ 需要——这俩 automation 会调用 kb-bridge 的 Python 脚本和 field-map |
+| 用 `amazon-daily-sync` 的人 | ✅ 需要——它会调用 kb-bridge 的 Python 脚本和 field-map |
 | 想自己写 base 写入逻辑的人 | ✅ 装它复用规则，避免重新发明 |
 
 ---
 
 ## Install
 
-### 安装 automations（4 个之一或全部）
+### 安装 automations
 
 ```bash
 # 装单个 (推荐根据需要安装)
 npx skills add daishiyu1991-hub/okr-evidence-compile --skill okr-evidence-compile -y
-npx skills add daishiyu1991-hub/okr-evidence-compile --skill amazon-meeting-update-assistant -y
-npx skills add daishiyu1991-hub/okr-evidence-compile --skill amazon-daily-kb-sync -y
+npx skills add daishiyu1991-hub/okr-evidence-compile --skill amazon-daily-sync -y
+npx skills add daishiyu1991-hub/okr-evidence-compile --skill amazon-base-kb-bridge -y
 
 # 一次装所有 automation + library
 npx skills add daishiyu1991-hub/okr-evidence-compile --all -y
 ```
 
 > 装完会到 `~/.agents/skills/<name>/`。codex 自动发现。
+> `okr-weekly-ritual` 不用 npx 装（无 SKILL.md frontmatter），见下方"设置 cron"段。
 
 ### 设置 `okr-weekly-ritual` cron
 

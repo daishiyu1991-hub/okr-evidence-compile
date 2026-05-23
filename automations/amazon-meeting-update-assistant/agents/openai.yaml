@@ -1,5 +1,0 @@
-interface:
-  display_name: "Amazon Meeting Update Assistant"
-  short_description: "Preview and confirm Base updates from meeting content"
-  default_prompt: "Turn this Amazon meeting or project update into a preview-first Base update with reasons and source links."
-
