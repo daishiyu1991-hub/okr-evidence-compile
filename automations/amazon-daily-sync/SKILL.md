@@ -132,6 +132,51 @@ lark-cli im +list-messages --as user \
 | 含 "KR X 完成了" / "进度到 N%" / "状态改 Y" | `audit_only` | "KR 状态/进度变更, 不需新 record" |
 | 闲聊 / 跑题 / 玩笑 / 跟业务无关 | `skip` | "evidence 不构成 actionable" |
 
+## Step 4.5 — Auto-link 推断关联 KR / 项目 / 活动
+
+对每条 candidate (routing 拟为 `task` / `project_activity` / `audit_only`)，复用 Step 3 已拉到的 ME-owned KR + 团队项目 + 项目活动 列表，codex 自身 LLM 推断关联。
+
+### 算法（按优先级）
+
+1. **显式 rec_id 命中**: `candidate.mentioned_records` 含某 KR/项目/活动 rec_id → `strong`
+2. **关键词整段命中**: `candidate.text` 含某 KR/项目/活动名整段 (如 KR 名 "Sorftime 数据接入完成" 整段在 text 里) → `strong`
+3. **关键词部分命中**: 仅部分关键词重叠 (text 含 "Sorftime" 但 KR 名是 "Sorftime 数据接入完成") → `weak`
+4. **LLM 语义推断**: 上述都不命中, codex 自身判断 candidate 的业务方向是否贡献于某 KR/项目 → `weak`
+5. **无任何匹配信号** → `none`
+
+### 链式回填
+
+candidate 命中某 项目活动 → 自动继承活动的 `所属项目` (父团队项目) → 再继承项目的 `关联KR` (如有)。
+candidate 命中某 团队项目 → 自动继承项目的 `关联KR`。
+candidate 命中某 KR → 不自动反推项目 (KR 可能有多项目)。
+
+### 输出字段
+
+每条 candidate 增加:
+- `linked_kr_rec_id` (string | null)
+- `linked_kr_name` (string | null, 显示用)
+- `linked_project_rec_id` (string | null)
+- `linked_project_name` (string | null)
+- `linked_activity_rec_id` (string | null, 仅当 candidate 是活动子任务)
+- `linked_activity_name` (string | null)
+- `linkage_confidence` (`strong` | `weak` | `none`)
+- `linkage_reason` (≤30 字, 说明匹配依据)
+
+### 写入与 REVIEW 行为
+
+| Confidence | 写 base 字段 | REVIEW 显示 |
+|---|---|---|
+| `strong` | 填 `关联KR` + `所属项目` | `关联: KR-X / 项目 Y` |
+| `weak` | 填字段, 但 `待人工确认=true` (本就强制) | `关联 (推断): KR-X / 项目 Y · ⚠️ 待 owner 确认` |
+| `none` | 字段留空 `[]` | `关联: ⚠️ 未匹配 (建议回 "6 关联 KR-X" 修正)` |
+
+### 推断硬规则
+
+- ❌ 不要硬编关联 (如 `strong` 标准没满足却强填 rec_id)
+- ❌ 不要发明 base 里不存在的 KR / 项目名
+- ✅ 若 ME-owned KR 列表为空 (新 owner 第一天用) → 所有 candidate 标 `none`, 不阻断
+- ✅ 若 candidate 同时命中多个 KR → 选 confidence 最高者, 其余在 `linkage_reason` 备注 "另可能关联 KR-Y"
+
 ## Step 5 — 输出 [REVIEW QUEUE] + 等用户
 
 输出消息（必含 `[REVIEW QUEUE]` 标记），格式：
@@ -174,6 +219,7 @@ candidates 总数: <N>
 候选 #1: "<事项文本>"
   来源: <源类型> #<msg_id> 或 <minute_token>
   AI 建议: <🚦 task | 📊 项目活动 | 🧮 团队项目 | 📝 仅 audit | ⏭️ skip>
+  关联: <KR名 / 项目名 / 活动名 OR "⚠️ 未匹配 KR/项目"> [strong | (推断) | (待确认)]
   理由: <1 句>
 
 候选 #2: ...
@@ -185,8 +231,8 @@ candidates 总数: <N>
 下一步选择 (回复一个):
 
 [1] 全部按 AI 建议接受 → 一次写完
-[2] 逐条 review → codex 一条条问你 routing
-[3] 改部分 → 你说 "#1 改 task, #3 改 skip" 等具体改动
+[2] 逐条 review → codex 一条条问你 routing + 关联
+[3] 改部分 → 你说 "#1 改 task, #3 改 skip, #2 关联 KR3" 等具体改动
 [4] 全部 skip → 今天不写
 [5] 解释 X → 不懂某个选项就问 (如 "解释项目活动")
 ```
@@ -195,11 +241,12 @@ candidates 总数: <N>
 
 ### REVIEW QUEUE 输出硬规则
 
-- **目标长度 ≤ 2500 字符**（含引导段 + 候选列表）
-- **每条候选最多 4 行**（事项 / 来源 / AI 建议 / 理由）—— 不展开 3 个 候选方案
+- **目标长度 ≤ 2800 字符**（含引导段 + 候选列表）
+- **每条候选最多 5 行**（事项 / 来源 / AI 建议 / 关联 / 理由）—— 不展开 3 个候选方案
 - candidates 总数 > 10 时只 list top 10 + 末尾 "另有 X 条简略, 回 'show all' 看全部"
 - **不要列已完成 task** / 已存在 record（避免噪声）
 - **0 candidates** 时输出 "今天 evidence 干净, 无 actionable 候选" + 直接 surface "skip 推群?" 选项
+- **关联显示规则**: confidence=strong → 不加后缀; weak → 加 "(推断, 待确认)"; none → 显示 "⚠️ 未匹配"
 
 ## Step 6 — 用户回复处理
 
@@ -219,22 +266,27 @@ candidates 总数: <N>
 
 事项: "<text>"
 来源: <ref>
+关联推断: <KR名 / 项目名 / 活动名 OR "⚠️ 未匹配"> [strong/weak/none]
 
 选项:
-[1] 🚦 task
+[1] 🚦 task (使用上述关联)
 [2] 📊 项目活动 (需指定父项目, 我列你 own 的项目候选)
 [3] 🧮 团队项目 (起草草稿, 不立刻建)
 [4] 📝 仅 audit (我问你具体改哪个 KR/项目 字段)
 [5] ⏭️ skip
+[6] 🔧 改关联 (回复 "6 关联 KR-X" / "6 关联 项目-Y" / "6 解关联")
 
-回复数字 (1-5)。
+回复数字 (1-6) 或 "6 关联 KR3"。
 ```
 
 用户回复 → 执行该 routing → 进下一条。
 
+如用户回复 "6 关联 KR3" → update candidate.linked_kr_rec_id, 重新 echo [PHASE-#N] 含新关联让用户再选 routing (1-5)。
+如用户回复 "6 解关联" → 清空 linked_*_rec_id, 关联标 "未匹配", 再让用户选 routing。
+
 ### [3] 改部分
 
-解析用户回复（如 "#1 改 task, #3 改 skip"），update 内存 routing 决策，再输出更新版 REVIEW QUEUE + "现在接受吗 [1]?"
+解析用户回复（如 "#1 改 task, #3 改 skip, #2 关联 KR3"），update 内存 routing / linkage 决策，再输出更新版 REVIEW QUEUE + "现在接受吗 [1]?"
 
 ### [4] 全部 skip
 
@@ -256,28 +308,31 @@ candidates 总数: <N>
 - 任务进度 = `"0-未开始"`
 - 任务开始日期 = today ms epoch
 - 任务结束日期 = ≤ this_week_friday ms epoch
-- 关联KR = `[{"id": <kr_rec_id>}]` (如 mentioned_records 含)
-- 所属项目 = `[{"id": <project_rec_id>}]` (如 mentioned_records 含)
+- **关联KR** = `[{"id": <candidate.linked_kr_rec_id>}]` 若 `linkage_confidence != "none"`, else `[]`
+- **所属项目** = `[{"id": <candidate.linked_project_rec_id>}]` 若 `linkage_confidence != "none"`, else `[]`
 - 最近更新原因 = "auto from amazon-daily-sync: 来源 <source>"
 - 最近更新来源 = source link
 - 最近更新时间 = now ms epoch
-- AI编译摘要 = ≤80 字摘要
+- AI编译摘要 = ≤80 字摘要 (含关联 KR/项目 名, 如 "对应 KR2-Sorftime; 由群聊 #6816 触发")
 - 待人工确认 = `true`
 
 ### 7.2 routing = `project_activity`
 
-先确认有父项目（mentioned_records 含某 🧮项目 record_id）。如无 → 转 team_project_draft.
+先确认有父项目（`candidate.linked_project_rec_id != null` 且 `linkage_confidence != "none"`）。如无 → 转 team_project_draft.
 
 `lark-cli base +record-batch-create --table-id tblf54mtW07iPCRL`:
 - 项目活动 = `事项`
-- 所属项目 = `[{"id": <project_rec_id>}]`
+- **所属项目** = `[{"id": <candidate.linked_project_rec_id>}]` **必填** (Step 4.5 已确保)
 - 负责人 = `[{"id": ME}]`
 - 执行人 = `[{"id": ME}]`
 - 项目阶段 = `"1-确定目标"` (默认, owner 后续手动改)
 - 任务进度 = `"0-未开始"`
 - 优先级 = `"P1"` (默认)
 - 任务计划结束日期 = 4 周后 ms epoch (默认)
+- AI编译摘要 = ≤80 字 (含父项目名 + 触发 evidence)
 - 待人工确认 = `true`
+
+注: 项目活动不直接 link KR (KR 由父项目继承), 但 Step 4.5 已经把 `linked_kr_rec_id` 填好用于 REVIEW + audit 字段说明。
 
 ### 7.3 routing = `team_project_draft`（**起草, 不直接建 base record**）
 
@@ -301,19 +356,44 @@ candidates 总数: <N>
 
 ## Step 8 — 写入完毕，输出 [WRITE DONE]
 
+每条 record 必须显示完整关联链 (task → 项目 → KR), 让 owner 一眼看出新建条目挂哪。
+
 ```
 [WRITE DONE] amazon-daily-sync 完成
 
 写入汇总:
-- 🚦 task: <N> 条 → [list record_ids]
-- 📊 项目活动: <N> 条 → [list]
-- 🧮 团队项目草稿: <N> 个 wiki doc + DM → [list links]
-- 📝 仅 audit: <N> records → [list]
+
+- 🚦 task: <N> 条
+  · "<task name>" (<rec_id>)
+    └─ KR<n>「<KR text>」 / 项目「<项目名>」     ← strong/weak linkage
+    → <task base url>
+  · "<task name>" (<rec_id>)
+    └─ ⚠️ 未关联 (待 base UI 手动补)              ← linkage=none
+    → <task base url>
+
+- 📊 项目活动: <N> 条
+  · "<活动 name>" (<rec_id>)
+    └─ 项目「<父项目名>」 / KR<n>「<KR text>」  (KR 由项目继承)
+    → <activity base url>
+
+- 🧮 团队项目草稿: <N> 个 wiki doc + DM
+  · "<draft title>" wiki: <url>
+  · DM message_id: <id>
+
+- 📝 仅 audit: <N> records 刷新
+  · KR<n>「<KR text>」 (<rec_id>) ← audit 字段刷新
+  · 项目「<项目名>」 (<rec_id>) ← audit 字段刷新
+
 - ⏭️ skip: <N> 条
 
 cross-owner items (未写, 仅 list):
   1. <事项>: assignee=<other>, source=<ref>
   ...
+
+linkage 统计:
+- strong (显式 rec_id 或 keyword 整段命中): <N>
+- weak (部分 keyword / LLM 语义推断, 待 owner 确认): <N>
+- none (未匹配任何 KR/项目, 字段留空): <N>
 
 base UI 入口:
 - 🚦每周任务: https://wg9k4pnk2o.feishu.cn/base/GxaobEQtqaOwFZsB5wTcC33Rnl7?table=tblrduPxvdifLm62
@@ -324,6 +404,7 @@ base UI 入口:
 - 全部新 task / 项目活动 待人工确认=true
 - 0 wiki/doc 写入（除 team_project_draft 起草到「OKR 巡检与草稿区」）
 - KR/项目正式状态字段未动 (仅 audit)
+- linkage=weak 的条目: <N> (建议 owner 到 base UI 核对关联是否正确)
 
 下次运行: 明天 22:00 cron 自动触发, 同一 thread 继续 / 新 thread (取决于客户端行为)
 ```

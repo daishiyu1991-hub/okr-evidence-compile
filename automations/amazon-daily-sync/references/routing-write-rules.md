@@ -22,6 +22,49 @@ print(int(friday_end.timestamp() * 1000))
 
 ---
 
+## Auto-link 推断 (Step 4.5 详细)
+
+写 base 前, 每条 candidate 必须先推断关联. 算法在 SKILL.md Step 4.5 已总结, 这里展开 payload 落字段的对应:
+
+| candidate 字段 | 来源 | 用途 |
+|---|---|---|
+| `linked_kr_rec_id` | Step 3 拉的 ME-owned KR 列表中匹配 | task.关联KR / audit_only 目标 record |
+| `linked_project_rec_id` | Step 3 拉的 ME-owned 团队项目列表 | task.所属项目 / 项目活动.所属项目 |
+| `linked_activity_rec_id` | Step 3 拉的 ME-owned 项目活动列表 | task 是活动子任务时 (扩展用) |
+| `linked_kr_name` / `linked_project_name` / `linked_activity_name` | 同上对应 record 的 name 字段 | REVIEW 显示 / [WRITE DONE] 显示 / AI编译摘要 嵌入 |
+| `linkage_confidence` | `strong` / `weak` / `none` | 决定是否写字段 + REVIEW 显示标签 |
+
+### 匹配优先级 (codex 推断时按顺序)
+
+1. **显式 rec_id 命中**: `candidate.mentioned_records` 含某 KR/项目/活动 rec_id → confidence=`strong`, 直接取
+2. **关键词整段命中**: KR/项目/活动 完整名称 (整段 substring) 出现在 candidate.text → `strong`
+3. **关键词部分命中**: candidate.text 含某 KR/项目核心词 (≥3 字 + 业务术语, 如 "Sorftime" / "ai 唤醒灯") → `weak`
+4. **LLM 语义判断**: candidate 的业务方向 (从 signals 抽) 与 KR 描述语义贴合 (codex 自身推断) → `weak`
+5. **皆不命中** → `none`, rec_id = null
+
+### 链式回填
+
+- candidate 匹到 项目活动 → 继承 `所属项目` (父团队项目) → 再继承 `关联KR`
+- candidate 匹到 团队项目 → 继承 `关联KR` (如有)
+- candidate 匹到 KR → 不自动反推 项目 (KR 可能多项目)
+
+### 写字段决策
+
+| confidence | 写 base 行为 |
+|---|---|
+| `strong` | 填 `关联KR` + `所属项目` (and `所属活动` if 适用) |
+| `weak` | 同上 (但 `待人工确认=true` 保持, owner 在 base UI 核对) |
+| `none` | 字段留空数组 `[]`, `待人工确认=true` |
+
+### 推断硬规则
+
+- ❌ 不要硬编关联 (`strong` 标准没满足却强填 rec_id) — anti-hallucination
+- ❌ 不要发明 base 里不存在的 KR / 项目名
+- ✅ ME-owned KR 列表为空 (新 owner 第一天用) → 所有 candidate 标 `none`, 不阻断
+- ✅ candidate 同时命中多个 KR → 选 confidence 最高者; 其余在 `linkage_reason` 备注 "另可能关联 KR-Y"
+
+---
+
 ## 7.1 routing = `task`
 
 ### Base 表
@@ -72,8 +115,10 @@ print(int(friday_end.timestamp() * 1000))
 - **执行人 强制 = ME**，不能替别人建 task
 - **任务进度 必须** `"0-未开始"` (新建默认)
 - **优先级** 从 evidence 抽 (含 P0-P3 字样) 或默认 P1
-- **关联KR / 所属项目** 从 candidate.mentioned_records 解析, 缺则空数组 `[]`
-- **待人工确认 = true** (owner 在 base UI 二次确认)
+- **关联KR** = Step 4.5 推断的 `candidate.linked_kr_rec_id`; `linkage_confidence != "none"` 时填, 否则空数组 `[]`
+- **所属项目** = Step 4.5 推断的 `candidate.linked_project_rec_id`; 同上规则
+- **AI编译摘要** 内嵌 linkage 信息: 如 "对应 KR2-Sorftime; 由群聊 #6816 触发"
+- **待人工确认 = true** (owner 在 base UI 二次确认 — 含 linkage=weak 时尤其要核对关联)
 
 ### 命令
 
@@ -92,7 +137,7 @@ lark-cli base +record-batch-create \
 
 ### 前置检查
 
-mentioned_records 必须含某 `🧮团队项目清单` record_id (作为父项目). 如无 → 转 `team_project_draft`.
+Step 4.5 推断结果须满足: `candidate.linked_project_rec_id != null` 且 `linkage_confidence != "none"` (即父项目已命中 ME-owned 团队项目). 如无 → 转 `team_project_draft`.
 
 ### Base 表
 
@@ -118,7 +163,7 @@ mentioned_records 必须含某 `🧮团队项目清单` record_id (作为父项�
   "rows": [
     [
       "<事项文本>",
-      [{"id": "<project_rec_id>"}],
+      [{"id": "<candidate.linked_project_rec_id>"}],
       [{"id": "<ME>"}],
       [{"id": "<ME>"}],
       "1-确定目标",
@@ -126,7 +171,7 @@ mentioned_records 必须含某 `🧮团队项目清单` record_id (作为父项�
       "P1",
       <today_ms>,
       <today + 4_weeks_ms>,
-      "auto from amazon-daily-sync: 来源 <source>; 阶段默认 1, owner 后续手动改",
+      "auto from amazon-daily-sync: 来源 <source>; 父项目 <linked_project_name>; 阶段默认 1, owner 后续手动改",
       true
     ]
   ]
@@ -135,11 +180,12 @@ mentioned_records 必须含某 `🧮团队项目清单` record_id (作为父项�
 
 ### 关键规则
 
-- **所属项目 必填** (link to 父项目 record_id)
+- **所属项目 必填** = `candidate.linked_project_rec_id` (Step 4.5 已确保 `linkage_confidence != "none"`)
 - **项目阶段** 默认 `"1-确定目标"`, owner 后续手动改
 - **执行人 + 负责人** 都 = ME (项目活动有 2 个 owner 字段)
 - **任务计划结束日期** 默认 4 周后 (跨周特征)
 - **优先级 select 字段值** 注意活动表是 `PO/P1/P2/P3` (注意 P0 写成 PO 是 base 笔误, 原样匹配)
+- **AI编译摘要** 内嵌父项目名 (即 `linked_project_name`) + KR 名 (即 `linked_kr_name`, 由项目继承)
 
 ---
 
