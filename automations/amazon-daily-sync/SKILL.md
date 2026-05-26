@@ -39,7 +39,7 @@ metadata:
 - **Identity 必须**: `ME = lark-cli auth status .userOpenId`；fallback chain `.userOpenId // .data.user_open_id // .data.users[0].userOpenId`；为空 abort
 - **ME 预期** = 戴时雨 `ou_ce0e16bb55bcde24078f9a551db3740d`（其他 owner 跑前改成自己的 open_id）
 - **全部 ownership-scoped**：只写 ME-owned records；新建 task 强制 `执行人=ME`；cross-owner action items 仅 list 不写
-- **绝对不写飞书 wiki / docs**（除 team_project_draft 起草到「OKR 巡检与草稿区」节点）：wiki 日会沉淀由 CEO 账号 wiki sinking automation 独立维护，不在本 skill 范围
+- **绝对不写飞书 wiki / docs**（除 team_project_draft 起草到「OKR 巡检与草稿区」节点）：本 skill 仅负责 base 写入，其他知识库写入不在范围
 - **新建 record 强制** `待人工确认=true`（owner 在 base UI 二次确认）
 
 ## Scope 边界（v0.4 硬规则）
@@ -356,7 +356,7 @@ base UI 入口:
 - ❌ 不要 shell out `claude` CLI 推理 (codex 自己就是 LLM)
 - ❌ 不要硬编 evidence (缺就老实报告 "evidence 不足")
 - ❌ 不要发明 base 表不存在的字段 (如 "预估投入 X 天")
-- ❌ 不要写飞书日会 wiki / 决策台账等（CEO 账号 wiki sinking automation 的活）
+- ❌ 不要写飞书 wiki / docs（仅 team_project_draft 起草到草稿区例外）
 - ❌ 不要给 task 起"模糊动词"名 (如 "看看 X")
 - ❌ 不要批量提问 N 个 candidates 让用户一次回 N 答案 — 走 [REVIEW QUEUE] 全貌 dump 或 [PHASE-#N] 逐条
 
