@@ -27,6 +27,11 @@ SAFETY_FACTOR = 1.1
 SLOW_DAYS = 180
 NEW_DAYS = 60  # 上架 < 60 天 = 新品，不判滞销/僵尸（用户口径，按 createTime 判断）
 AMAZON_TRANSFER_FIELD = "reservedTransfers"  # 亚马逊 FC 调仓/转仓中库存
+REPLENISH_EXTRA_FIELDS = [
+    {"name": "亚马逊调仓", "type": "number"},
+    {"name": "积加可售量", "type": "number"},
+    {"name": "站点ASIN映射", "type": "text"},
+]
 # 手动排除清单（待推广/特殊处理的 ASIN，不判滞销/僵尸，归🆕）。可随时增删。
 MANUAL_EXCLUDE = {"B0GVK9NQ92"}  # 挂烫机米黄：上架超60天但还没推广，先手动排除
 # 运输方式 lead time：生产+清关入仓上架固定，头程随方式（用户口径：快船20/慢船30）
@@ -193,6 +198,11 @@ def normalize(row):
     suggested = max(0.0, target - supply_with_transfer)
     wh_name = row.get("warehouseName") or ""
     site = wh_name.split(":")[-1].replace("_FBA", "") if wh_name else (row.get("warehouseCountry") or "?")
+    parent_asins = row.get("parentAsinList") or []
+    if isinstance(parent_asins, list):
+        site_asin_map = " / ".join(str(x) for x in parent_asins if x and "未设置" not in str(x))
+    else:
+        site_asin_map = str(parent_asins or "")
     return {
         "asin": row.get("asin") or "",
         "msku": row.get("msku") or row.get("sku") or "",
@@ -216,6 +226,7 @@ def normalize(row):
         "fbaInventoryLevelHealthStatus": row.get("fbaInventoryLevelHealthStatus") or "-",
         "onHandValue": qty(row.get("onHandValue")),
         "createTime": (row.get("createTime") or "")[:10],
+        "siteAsinMap": site_asin_map,
         "raw": row,
     }
 
@@ -341,8 +352,10 @@ def build_outputs(rows, today):
                 "日均30d": round2(item["avgUnitsOrdered30Days"]),
                 "含在途可售天数": round2(item["availableSellableDaysWithTransit"]),
                 "现有可售": round2(item["afnFulfillableQuantity"]),
+                "积加可售量": round2(item["availableQty"]),
                 "在途": round2(item["inTransitQty"]),
                 "亚马逊调仓": round2(item["amazonTransferQty"]),
+                "站点ASIN映射": item["siteAsinMap"],
                 "库存货值(RMB)": round2(item["onHandValue"]),
                 "补货周期天数": item["leadTimeDays"],
                 "安全库存": round2(item["safetyStock"]),
@@ -477,6 +490,49 @@ def read_records(table_id, limit=200):
     )
 
 
+def ensure_replenish_extra_fields():
+    data = run_lark(
+        [
+            LARK,
+            "base",
+            "+field-list",
+            "--base-token",
+            BASE_TOKEN,
+            "--table-id",
+            REPLENISH_TABLE_ID,
+            "--as",
+            "user",
+        ]
+    )
+    existing = {
+        field.get("name")
+        for field in data.get("data", {}).get("fields", [])
+        if isinstance(field, dict)
+    }
+    created = []
+    for field in REPLENISH_EXTRA_FIELDS:
+        if field["name"] in existing:
+            continue
+        created.append(
+            run_lark(
+                [
+                    LARK,
+                    "base",
+                    "+field-create",
+                    "--base-token",
+                    BASE_TOKEN,
+                    "--table-id",
+                    REPLENISH_TABLE_ID,
+                    "--as",
+                    "user",
+                    "--json",
+                    json.dumps(field, ensure_ascii=False),
+                ]
+            )
+        )
+    return created
+
+
 def print_summary(rows, buckets, alert_fields, replenishment, retried_pages):
     print(f"# 06 库存与物流检查 — {alert_fields['日期']}")
     print(f"数据源：积加 gerp-inventory · 扫描 {len(rows)} 个 SKU")
@@ -578,18 +634,21 @@ def main():
     artifact_dir.mkdir(parents=True, exist_ok=True)
     if args.from_artifact:
         artifact = json.loads(Path(args.from_artifact).read_text())
-        rows = artifact.get("items", [])
+        today = artifact.get("today") or artifact.get("alert_payload", {}).get("日期") or today
         retried_pages = artifact.get("retried_pages", [])
-        alert_fields = artifact["alert_payload"]
-        replenishment = artifact["replenishment_payload"]
-        buckets = {
-            "R1": [i for i in rows if i.get("class") == "R1"],
-            "R2": [i for i in rows if i.get("class") == "R2"],
-            "R3": [i for i in rows if i.get("class") == "R3"],
-            "R4": [i for i in rows if i.get("class") == "R4"],
-            "OK": [i for i in rows if i.get("class") == "OK"],
-            "NEW": [i for i in rows if i.get("class") == "NEW"],
+        rows = [item.get("raw", item) for item in artifact.get("items", [])]
+        items, buckets, alert_fields, replenishment = build_outputs(rows, today)
+        if retried_pages:
+            alert_fields["状态码"] = "DONE_WITH_CONCERNS"
+        artifact = {
+            "today": today,
+            "source_rows_count": artifact.get("source_rows_count", len(rows)),
+            "retried_pages": retried_pages,
+            "items": items,
+            "alert_payload": alert_fields,
+            "replenishment_payload": replenishment,
         }
+        (artifact_dir / f"{today}.json").write_text(json.dumps(artifact, ensure_ascii=False, indent=2))
     else:
         rows, retried_pages = fetch_inventory()
         items, buckets, alert_fields, replenishment = build_outputs(rows, today)
@@ -611,6 +670,7 @@ def main():
 
     try:
         cleanup_result = cleanup_default_table()
+        field_create_result = ensure_replenish_extra_fields()
         alert_write = batch_create_records(ALERT_TABLE_ID, [alert_fields])
         repl_write = batch_create_records(REPLENISH_TABLE_ID, replenishment)
         alert_readback = read_records(ALERT_TABLE_ID)
@@ -625,6 +685,7 @@ def main():
 
     write_result = {
         "cleanup_result": cleanup_result,
+        "field_create_result": field_create_result,
         "alert_write": alert_write,
         "replenishment_write": repl_write,
         "alert_readback": alert_readback,

@@ -59,6 +59,9 @@ python3 skills/06_inventory/run_inventory.py --no-write
 python3 skills/06_inventory/run_inventory.py --from-artifact skills/06_inventory/runs/YYYY-MM-DD.json
 ```
 
+`--from-artifact` 会使用 artifact 里的 raw rows 按当前脚本口径重新计算 payload，
+适合口径修正后回填历史日期。只回填 Base、不发群时加 `--no-report`。
+
 运行 artifact 写入 `skills/06_inventory/runs/YYYY-MM-DD.json`。写飞书成功时还会生成
 `YYYY-MM-DD.write_result.json`；写入失败时生成 `YYYY-MM-DD.write_error.json`。
 
@@ -67,4 +70,8 @@ python3 skills/06_inventory/run_inventory.py --from-artifact skills/06_inventory
 - 积加 MCP 认证从 `~/.claude.json` 读取。
 - 飞书写入使用 `~/.npm-global/bin/lark-cli base +record-batch-create --as user --json`。
 - lark-cli 认证必须能读取本机 keychain。
-- 月度补货建议表需要字段 `亚马逊调仓`（number）；缺失时先在 Base 中创建。
+- 月度补货建议表写入时会确保补充字段存在：
+  `亚马逊调仓`（number，已建）、`积加可售量`（number，对应 raw `availableQty`）、
+  `站点ASIN映射`（text，对应 raw `parentAsinList`，用于 EU 共享仓映射 DE/FR/ES 等站点）。
+- `现有可售` 保持锁定补货口径，对应 raw `afnFulfillableQuantity`；不要把它和
+  `availableQty` 混用进补货公式。
