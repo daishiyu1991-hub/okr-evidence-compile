@@ -62,6 +62,8 @@
 npx skills add daishiyu1991-hub/okr-evidence-compile --skill amazon-base-kb-bridge -y
 ```
 
+库存日报脚本型 skill 位于 [`../skills/06_inventory/`](../skills/06_inventory/)，不属于 ownership-scoped OKR automation；它写 86lux 亚马逊库存预警 / 月度补货建议两张 Base，并向亚马逊电商部群发送日报。
+
 ---
 
 ## 86lux 推广 onboarding
