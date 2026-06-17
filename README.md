@@ -16,6 +16,9 @@ daishiyu1991-hub/okr-evidence-compile/
 │   ├── amazon-daily-sync/       (v0.4 merged: daily-kb-sync + meeting-update-assistant)
 │   └── okr-weekly-ritual/
 │
+├── skills/          ← 业务运营脚本型 skill
+│   └── 06_inventory/
+│
 └── libraries/       ← 给 automations 调用的共享库 / 决策规则，不直接跑
     └── amazon-base-kb-bridge/
 ```
@@ -41,6 +44,12 @@ daishiyu1991-hub/okr-evidence-compile/
 | library | 干什么 |
 |---|---|
 | **`amazon-base-kb-bridge`** | base 写入的"决策中枢"（详见下） |
+
+## Skills 清单（1 个）
+
+| skill | 干什么 |
+|---|---|
+| **`06_inventory`** | 86lux 亚马逊库存日报：读取积加 FBA 库存，计入 FBA 可售 + 在途 + 亚马逊调仓，写库存预警 / 月度补货建议两张飞书 Base，并向亚马逊电商部群发送日报。 |
 
 ### `amazon-base-kb-bridge` 是啥？
 
@@ -86,8 +95,9 @@ okr-weekly-ritual    ──→ 不依赖 (prompt 自包含全部规则)
 npx skills add daishiyu1991-hub/okr-evidence-compile --skill okr-evidence-compile -y
 npx skills add daishiyu1991-hub/okr-evidence-compile --skill amazon-daily-sync -y
 npx skills add daishiyu1991-hub/okr-evidence-compile --skill amazon-base-kb-bridge -y
+npx skills add daishiyu1991-hub/okr-evidence-compile --skill 06_inventory -y
 
-# 一次装所有 automation + library
+# 一次装所有 automation + library + skill
 npx skills add daishiyu1991-hub/okr-evidence-compile --all -y
 ```
 
